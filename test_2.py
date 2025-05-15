@@ -1,103 +1,134 @@
 import random
+from typing import List, Tuple, Set
 
 
 class Animal:
+    symbol = ''  # Symbol to represent the animal on the board
 
-    def can_defeat(self, other):
-        raise NotImplementedError("При не соответствии повторить еще раз!.")
+    def can_defeat(self, other: 'Animal') -> bool:
+        return False
 
-    def symbol(self):
-        return self.__class__.__name__[0]
-
-
-class Lion(Animal):
-    def can_defeat(self, other):
-        return isinstance(other, (Tiger, Wolf, Deer))
-
-
-class Tiger(Animal):
-    def can_defeat(self, other):
-        return isinstance(other, (Wolf, Deer))
-
-
-class Wolf(Animal):
-    def can_defeat(self, other):
-        return isinstance(other, Deer)
+    def __str__(self) -> str:
+        return self.symbol
 
 
 class Deer(Animal):
-    def can_defeat(self, other):
+    symbol = 'D'
+
+    def can_defeat(self, other: 'Animal') -> bool:
         return False
 
 
-ANIMAL_CLASSES = [Lion, Tiger, Wolf, Deer]
+class Wolf(Animal):
+    symbol = 'W'
+
+    def can_defeat(self, other: 'Animal') -> bool:
+        return isinstance(other, Deer)
 
 
-def create_board(size=10):
-    return [
-        [random.choice(ANIMAL_CLASSES)() for _ in range(size)]
-        for _ in range(size)
-    ]
+class Tiger(Animal):
+    symbol = 'T'
+
+    def can_defeat(self, other: 'Animal') -> bool:
+        return isinstance(other, (Wolf, Deer))
 
 
-def print_board(board, conquered=None, chosen=None):
-    for i, row in enumerate(board):
-        line = []
-        for j, animal in enumerate(row):
-            if conquered and (i, j) in conquered:
-                if chosen and (i, j) == chosen:
-                    line.append(animal.symbol())  # chosen cell stays as animal symbol
+class Lion(Animal):
+    symbol = 'L'
+
+    def can_defeat(self, other: 'Animal') -> bool:
+        return isinstance(other, (Tiger, Wolf, Deer))
+
+
+class SafariField:
+
+    def __init__(self, size: int = 10):
+
+        self.size = size
+        self.board = self._populate_board()
+
+    def _populate_board(self) -> List[List[Animal]]:
+
+        animal_types = [Deer, Wolf, Tiger, Lion]
+        board = []
+
+        for _ in range(self.size):
+            row = []
+            for _ in range(self.size):
+                animal_class = random.choice(animal_types)
+                row.append(animal_class())
+            board.append(row)
+
+        return board
+
+    def display_board(self, conquered_cells: Set[Tuple[int, int]] = None) -> None:
+
+        if conquered_cells is None:
+            conquered_cells = set()
+
+        print("\nBoard:")
+        for i in range(self.size):
+            row_str = ""
+            for j in range(self.size):
+                if (i, j) in conquered_cells:
+                    row_str += " -"
                 else:
-                    line.append('-')
-            else:
-                line.append(animal.symbol())
-        print(' '.join(line))
-    print()
+                    row_str += f" {self.board[i][j]}"
+            print(row_str)
 
+    def pick_random_cell(self) -> Tuple[int, int]:
 
-def conquer(board, pos, conquered, original_animal, start_pos):
-    size = len(board)
-    i, j = pos
+        row = random.randint(0, self.size - 1)
+        col = random.randint(0, self.size - 1)
+        return (row, col)
 
-    if not (0 <= i < size and 0 <= j < size):
-        return
+    def find_conquerable_cells(self, start_cell: Tuple[int, int]) -> Set[Tuple[int, int]]:
 
-    if (i, j) in conquered:
-        return
-    current_animal = board[i][j]
+        row, col = start_cell
+        starting_animal = self.board[row][col]
+        conquered = set()
 
-    if pos != start_pos and isinstance(current_animal, original_animal.__class__):
-        return
+        def conquer_recursive(r: int, c: int) -> None:
 
-    if pos != start_pos and not original_animal.can_defeat(current_animal):
-        return
-    conquered.add(pos)
+            if not (0 <= r < self.size and 0 <= c < self.size) or (r, c) in conquered:
+                return
 
-    for di in [-1, 0, 1]:
-        for dj in [-1, 0, 1]:
-            if di == 0 and dj == 0:
-                continue
-            ni, nj = i + di, j + dj
-            conquer(board, (ni, nj), conquered, original_animal, start_pos)
+            target_animal = self.board[r][c]
+
+            if r == row and c == col:
+                conquered.add((r, c))
+
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+                        conquer_recursive(r + dr, c + dc)
+            elif type(target_animal) != type(starting_animal) and starting_animal.can_defeat(target_animal):
+                conquered.add((r, c))
+
+                for dr in [-1, 0, 1]:
+                    for dc in [-1, 0, 1]:
+                        if dr == 0 and dc == 0:
+                            continue
+                        conquer_recursive(r + dr, c + dc)
+
+        conquer_recursive(row, col)
+        return conquered
 
 
 def main():
-    size = 10
-    board = create_board(size)
-    print("Board at start:\n")
-    print_board(board)
+    safari = SafariField()
 
-    i = random.randint(0, size - 1)
-    j = random.randint(0, size - 1)
-    animal = board[i][j]
+    safari.display_board()
 
-    print(f"Chosen cell: [{i + 1},{j + 1}]: {animal.symbol()}\n")
+    chosen_cell = safari.pick_random_cell()
+    row, col = chosen_cell
+    print(f"\nChosen cell: [{row + 1},{col + 1}]: {safari.board[row][col]}")
 
-    conquered = set()
-    conquer(board, (i, j), conquered, animal, (i, j))
+    conquered = safari.find_conquerable_cells(chosen_cell)
 
-    print("Board after conquer:\n")
-    print_board(board, conquered, (i, j))
+    print("\nBoard after conquer:")
+    safari.display_board(conquered)
 
 
 if __name__ == "__main__":
