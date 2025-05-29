@@ -3,8 +3,7 @@ from typing import List, Tuple, Set
 
 
 class Animal:
-    symbol = ''  # Symbol to represent the animal on the board
-
+    symbol = ''  
     def can_defeat(self, other: 'Animal') -> bool:
         return False
 
